@@ -9,14 +9,14 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import os
 
-# --- Page Configuration ---
+
 st.set_page_config(
     page_title="Customer Analytics Dashboard",
     page_icon="📈",
     layout="wide"
 )
 
-# --- Caching Functions for Performance ---
+
 @st.cache_data
 def load_and_clean_data(uploaded_file):
     """Loads and performs initial cleaning of the dataset."""
@@ -33,25 +33,21 @@ def process_data_for_model(_df):
     Processes the data to create RFM features, churn labels, and clusters for visualization.
     This is the core logic for a realistic churn prediction model.
     """
-    # 1. Define a cutoff date to split data into a training and a future period.
     cutoff_date = _df['InvoiceDate'].max() - dt.timedelta(days=90)
     df_train = _df[_df['InvoiceDate'] < cutoff_date]
     df_future = _df[_df['InvoiceDate'] >= cutoff_date]
 
-    # 2. Calculate RFM values based ONLY on the training period data.
     rfm = df_train.groupby('Customer ID').agg({
-        'InvoiceDate': lambda date: (cutoff_date - date.max()).days, # Recency
-        'Invoice': 'nunique',                                    # Frequency
-        'TotalPrice': 'sum'                                      # Monetary
+        'InvoiceDate': lambda date: (cutoff_date - date.max()).days, 
+        'Invoice': 'nunique',                                    
+        'TotalPrice': 'sum'                                     
     })
     rfm.rename(columns={'InvoiceDate': 'Recency', 'Invoice': 'Frequency', 'TotalPrice': 'MonetaryValue'}, inplace=True)
 
-    # 3. Define churn based on whether a customer purchased in the future period.
     future_customers = df_future['Customer ID'].unique()
     rfm['Churn'] = rfm.index.isin(future_customers).astype(int)
     rfm['Churn'] = rfm['Churn'].apply(lambda x: 0 if x == 1 else 1) 
-    
-    # 4. Create clusters for visualization purposes
+  
     scaler = StandardScaler()
     rfm_scaled = scaler.fit_transform(rfm[['Recency', 'Frequency', 'MonetaryValue']])
     kmeans = KMeans(n_clusters=4, random_state=42, n_init=10)
@@ -70,7 +66,6 @@ def train_and_save_model(processed_df):
     joblib.dump(model, 'churn_model.pkl')
     return model
 
-# --- UI: Sidebar ---
 with st.sidebar:
     st.header("1. Upload Your Data")
     uploaded_file = st.file_uploader("Choose a CSV file with transactional data", type="csv")
@@ -84,17 +79,15 @@ with st.sidebar:
     
     predict_button = st.button("Predict Churn")
 
-# --- UI: Main Page ---
 st.title("📈 Customer Analytics Dashboard")
 st.write("This dashboard analyzes customer data to create segments and predict churn risk.")
 
 if uploaded_file is not None:
-    # Process data and train model
+   
     df_clean = load_and_clean_data(uploaded_file)
     rfm_processed = process_data_for_model(df_clean)
     model = train_and_save_model(rfm_processed)
-    
-    # Display results
+
     st.header("Customer Segmentation")
     st.write("Customers are segmented into 4 clusters based on their RFM values.")
     
@@ -118,7 +111,6 @@ if uploaded_file is not None:
 else:
     st.info("Awaiting for a CSV file to be uploaded. Please use the sidebar to begin.")
 
-# --- Prediction Logic (in sidebar) ---
 if predict_button:
     if not os.path.exists('churn_model.pkl'):
         st.sidebar.error("Please upload data to train the model first.")
@@ -130,7 +122,7 @@ if predict_button:
             'MonetaryValue': [monetary_input]
         })
         
-        prediction_proba = model.predict_proba(input_data)[0][1] # Probability of churn (class 1)
+        prediction_proba = model.predict_proba(input_data)[0][1] 
         
         st.sidebar.metric(
             label="Churn Probability",
